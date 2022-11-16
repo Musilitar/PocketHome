@@ -3,6 +3,7 @@
     let reader: FileReader
     let data: string
     let trainer: string
+    let rival: string
 
     function readSave(event: Event & { currentTarget: EventTarget & HTMLInputElement }): void {
         file = event.currentTarget.files[0]
@@ -10,6 +11,7 @@
         reader.onload = (event) => {
             data = event.target.result as string
             trainer = getTextString(0x200b, 11)
+            rival = getTextString(0x2021, 11)
         }
         reader.readAsBinaryString(file)
     }
@@ -117,7 +119,8 @@
 
 <main>
     <input type="file" accept=".sav" on:change={readSave} />
-    <p>{trainer}</p>
+    <p>Trainer: {trainer}</p>
+    <p>Rival: {rival}</p>
 </main>
 
 <style>
