@@ -1,12 +1,15 @@
 :root {
     --pink: rgba(121, 9, 85, 1);
     --yellow: rgba(255, 226, 0, 1);
+    --black: rgb(20, 20, 20);
 }
 
 * {
+    box-sizing: border-box;
     font-family: sans-serif;
     margin: 0;
     padding: 0;
+    color: var(--yellow);
 }
 
 html,
