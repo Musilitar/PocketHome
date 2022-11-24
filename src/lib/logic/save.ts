@@ -1,14 +1,78 @@
 export { Save, parseSave }
 
 class Save {
-    constructor(public playerName: string, public rivalName: string) {}
+    constructor(public game: Game) {}
 }
 
-function parseSave(data: string): Save {
-    const playerName = readText(data, 0x200b, 11)
-    const rivalName = readText(data, 0x2021, 11)
+class SaveSize {
+    public static readonly RGBYRaw = 0x8000
+    public static readonly RGBYBattery = 0x802c
+    public static readonly GSCRawUniversal = 0x8000
+    public static readonly GSCVirtualConsoleUniversal = 0x8010
+    public static readonly GSCBatteryUniversal = 0x802c
+    public static readonly GSCEmulatorUniversal = 0x8030
+    public static readonly GSCRawJapanase = 0x10000
+    public static readonly GSCVirtualConsoleJapanese = 0x10010
+    public static readonly GSCBatteryJapanese = 0x1002c
+    public static readonly GSCEmulatorJapanese = 0x10030
+    public static readonly RSERaw = 0x20000
+    public static readonly RSEEmulator = 0x20010
+    public static readonly RSERawHalf = 0x10000
+    public static readonly DPPtRaw = 0x80000
+    public static readonly BWB2W2Raw = 0x80000
+    public static readonly BW = 0x24000
+    public static readonly B2W2 = 0x26000
 
-    return new Save(playerName, rivalName)
+    public static get RGBY(): number[] {
+        return [this.RGBYRaw, this.RGBYBattery]
+    }
+
+    public static get GSC(): number[] {
+        return [
+            this.GSCRawUniversal,
+            this.GSCVirtualConsoleUniversal,
+            this.GSCBatteryUniversal,
+            this.GSCEmulatorUniversal,
+            this.GSCRawJapanase,
+            this.GSCVirtualConsoleJapanese,
+            this.GSCBatteryJapanese,
+            this.GSCEmulatorJapanese,
+        ]
+    }
+
+    public static get RSE(): number[] {
+        return [this.RSERaw, this.RSEEmulator, this.RSERawHalf]
+    }
+}
+
+class Game {
+    constructor(public code: string, public version: string) {}
+}
+
+function parseSave(data: string, size: number): Save {
+    const game = determineGame(data, size)
+
+    return new Save(game)
+}
+
+function determineGame(data: string, size: number): Game {
+    if (SaveSize.GSC.includes(size)) {
+        if (isRGBYGSCPokemonList(data, 0x288a, 20) && isRGBYGSCPokemonList(data, 0x2d6c, 20)) return new Game('GS', 'U')
+        if (isRGBYGSCPokemonList(data, 0x2865, 20) && isRGBYGSCPokemonList(data, 0x2d10, 20)) return new Game('C', 'U')
+        if (isRGBYGSCPokemonList(data, 0x286a, 20) && isRGBYGSCPokemonList(data, 0x2d15, 20))
+            return new Game('C', '251')
+        if (isRGBYGSCPokemonList(data, 0x2d10, 30) && isRGBYGSCPokemonList(data, 0x283e, 30)) return new Game('GS', 'J')
+        if (isRGBYGSCPokemonList(data, 0x2d10, 30) && isRGBYGSCPokemonList(data, 0x281a, 30)) return new Game('C', 'J')
+    }
+
+    throw 'Cannot determine game'
+}
+
+function isRGBYGSCPokemonList(data: string, offset: number, expectedLength: number) {
+    const actualLength = data.charCodeAt(offset)
+    const terminator = data.charCodeAt(offset + actualLength + 1)
+    console.log(expectedLength, actualLength, terminator)
+    return actualLength <= expectedLength && terminator == 0xff
 }
 
 function readText(data: String, offset: number, size: number): string {

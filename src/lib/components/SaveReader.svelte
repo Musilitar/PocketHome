@@ -14,7 +14,7 @@
     function readSave(file: File): void {
         const reader = new FileReader()
         reader.onload = (event) => {
-            save = parseSave(event.target.result as string)
+            save = parseSave(event.target.result as string, file.size)
         }
         reader.readAsBinaryString(file)
     }
@@ -28,8 +28,7 @@
 <input id="saveInput" type="file" accept=".sav" on:change={onChange} />
 
 {#if save !== undefined}
-    <p>Player: {save.playerName}</p>
-    <p>Rival: {save.rivalName}</p>
+    <p>Game = {save.game.code}--{save.game.version}</p>
 {/if}
 
 <style>
