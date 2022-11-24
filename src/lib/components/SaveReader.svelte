@@ -37,7 +37,7 @@
             <p><i>Team</i></p>
             <ol>
                 {#each save.team as pokemon}
-                    <li>{pokemon.species} - {pokemon.name}</li>
+                    <li>{pokemon.species} (<i>{pokemon.name}</i>) [{pokemon.index}]</li>
                 {/each}
             </ol>
         </li>
@@ -49,7 +49,7 @@
                         <p><i>{box.name}</i></p>
                         <ol>
                             {#each box.pokemon as pokemon}
-                                <li>{pokemon.species} - {pokemon.name}</li>
+                                <li>{pokemon.species} (<i>{pokemon.name}</i>) [{pokemon.index}]</li>
                             {/each}
                         </ol>
                     </li>
