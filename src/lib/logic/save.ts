@@ -1,7 +1,7 @@
 export { Save, parseSave }
 
 class Save {
-    constructor(public game: Game) {}
+    constructor(public game: Game, public team: Pokemon[], public boxes: Box[]) {}
 }
 
 class SaveSize {
@@ -49,30 +49,134 @@ class Game {
     constructor(public code: string, public version: string) {}
 }
 
+class GameCode {
+    public static readonly GoldSilver = 'GS'
+    public static readonly Crystal = 'C'
+}
+
+class GameVersion {
+    public static readonly Universal = 'U'
+    public static readonly Japanese = 'J'
+    public static readonly TwoHundredFiftyOne = '251'
+}
+
+class Pokemon {
+    constructor(public species: number, public originalTrainer: string, public name: string) {}
+}
+
+class Box {
+    constructor(public name: string, public pokemon: Pokemon[]) {}
+}
+
 function parseSave(data: string, size: number): Save {
     const game = determineGame(data, size)
+    const team = readTeam(data, game)
+    const boxes = readBoxes(data, game)
 
-    return new Save(game)
+    return new Save(game, team, boxes)
 }
 
 function determineGame(data: string, size: number): Game {
     if (SaveSize.GSC.includes(size)) {
-        if (isRGBYGSCPokemonList(data, 0x288a, 20) && isRGBYGSCPokemonList(data, 0x2d6c, 20)) return new Game('GS', 'U')
-        if (isRGBYGSCPokemonList(data, 0x2865, 20) && isRGBYGSCPokemonList(data, 0x2d10, 20)) return new Game('C', 'U')
+        if (isRGBYGSCPokemonList(data, 0x288a, 20) && isRGBYGSCPokemonList(data, 0x2d6c, 20))
+            return new Game(GameCode.GoldSilver, GameVersion.Universal)
+        if (isRGBYGSCPokemonList(data, 0x2865, 20) && isRGBYGSCPokemonList(data, 0x2d10, 20))
+            return new Game(GameCode.Crystal, GameVersion.Universal)
         if (isRGBYGSCPokemonList(data, 0x286a, 20) && isRGBYGSCPokemonList(data, 0x2d15, 20))
-            return new Game('C', '251')
-        if (isRGBYGSCPokemonList(data, 0x2d10, 30) && isRGBYGSCPokemonList(data, 0x283e, 30)) return new Game('GS', 'J')
-        if (isRGBYGSCPokemonList(data, 0x2d10, 30) && isRGBYGSCPokemonList(data, 0x281a, 30)) return new Game('C', 'J')
+            return new Game(GameCode.Crystal, GameVersion.TwoHundredFiftyOne)
+        if (isRGBYGSCPokemonList(data, 0x2d10, 30) && isRGBYGSCPokemonList(data, 0x283e, 30))
+            return new Game(GameCode.GoldSilver, GameVersion.Japanese)
+        if (isRGBYGSCPokemonList(data, 0x2d10, 30) && isRGBYGSCPokemonList(data, 0x281a, 30))
+            return new Game(GameCode.Crystal, GameVersion.Japanese)
     }
 
-    throw 'Cannot determine game'
+    throw 'Failed to determine game'
 }
 
 function isRGBYGSCPokemonList(data: string, offset: number, expectedLength: number) {
     const actualLength = data.charCodeAt(offset)
     const terminator = data.charCodeAt(offset + actualLength + 1)
-    console.log(expectedLength, actualLength, terminator)
+
     return actualLength <= expectedLength && terminator == 0xff
+}
+
+function readTeam(data: string, game: Game): Pokemon[] {
+    if (game.code === GameCode.Crystal && game.version === GameVersion.TwoHundredFiftyOne)
+        return readPokemonList(data, 0x286a, 6, 48, 10)
+
+    throw 'Failed to read team'
+}
+
+function readBoxes(data: string, game: Game): Box[] {
+    const boxes: Box[] = []
+
+    if (game.code === GameCode.Crystal && game.version === GameVersion.TwoHundredFiftyOne) {
+        const boxOffsets = [
+            0x4000, 0x4450, 0x48a0, 0x4cf0, 0x5140, 0x5590, 0x59e0, 0x6000, 0x6450, 0x68a0, 0x6cf0, 0x7140, 0x7590,
+            0x79e0,
+        ]
+
+        for (let i = 0; i < boxOffsets.length; i++) {
+            const pokemon = readPokemonList(data, boxOffsets[i], 20, 32, 10)
+
+            boxes.push(new Box(`BOX ${i + 1}`, pokemon))
+        }
+
+        return boxes
+    }
+
+    throw 'Failed to read boxes'
+}
+
+function readPokemonList(
+    data: string,
+    offset: number,
+    capacity: number,
+    entrySize: number,
+    textSize: number,
+): Pokemon[] {
+    const pokemon: Pokemon[] = []
+
+    const countEndOffset = offset + 1
+    const count = readInteger(data, offset, 1)
+
+    // Length = (1 byte per species * capacity) + 1 terminator byte
+    const speciesEndOffset = countEndOffset + 1 * capacity + 1
+    const speciesData = data.slice(countEndOffset, speciesEndOffset + 1)
+
+    // Length = (entry size bytes per pokemon * capacity)
+    const pokemonEndOffset = speciesEndOffset + entrySize * capacity
+    const pokemonData = data.slice(speciesEndOffset, pokemonEndOffset + 1)
+
+    // Length = ((text size bytes + 1 terminator byte) * capacity)
+    const originalTrainersEndOffset = pokemonEndOffset + (textSize + 1) * capacity
+    const originalTrainersData = data.slice(pokemonEndOffset, originalTrainersEndOffset + 1)
+
+    // Length = ((text size bytes + 1 terminator byte) * capacity)
+    const namesEndOffset = originalTrainersEndOffset + (textSize + 1) * capacity
+    const namesData = data.slice(originalTrainersEndOffset, namesEndOffset + 1)
+
+    for (let i = 0; i < count; i++) {
+        const species = readInteger(speciesData, i, 1)
+        const originalTrainer = readText(originalTrainersData, i * 11, textSize)
+        const name = readText(namesData, i * 11, textSize)
+
+        pokemon.push(new Pokemon(species, originalTrainer, name))
+    }
+
+    return pokemon
+}
+
+function readInteger(data: string, offset: number, size: number) {
+    let hexadecimal = ''
+
+    for (let i = 0; i < size; i++) {
+        let byte = data.charCodeAt(offset + i).toString(16)
+        if (byte.length < 2) byte = byte.padStart(2, '0')
+        hexadecimal += byte
+    }
+
+    return parseInt(hexadecimal, 16)
 }
 
 function readText(data: String, offset: number, size: number): string {

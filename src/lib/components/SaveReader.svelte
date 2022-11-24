@@ -28,7 +28,35 @@
 <input id="saveInput" type="file" accept=".sav" on:change={onChange} />
 
 {#if save !== undefined}
-    <p>Game = {save.game.code}--{save.game.version}</p>
+    <ul>
+        <li>
+            <p><i>Game</i></p>
+            <p>{save.game.code}--{save.game.version}</p>
+        </li>
+        <li>
+            <p><i>Team</i></p>
+            <ol>
+                {#each save.team as pokemon}
+                    <li>{pokemon.species} - {pokemon.name}</li>
+                {/each}
+            </ol>
+        </li>
+        <li>
+            <p><i>Boxes</i></p>
+            <ol>
+                {#each save.boxes as box}
+                    <li>
+                        <p><i>{box.name}</i></p>
+                        <ol>
+                            {#each box.pokemon as pokemon}
+                                <li>{pokemon.species} - {pokemon.name}</li>
+                            {/each}
+                        </ol>
+                    </li>
+                {/each}
+            </ol>
+        </li>
+    </ul>
 {/if}
 
 <style>
@@ -40,5 +68,13 @@
 
     input {
         opacity: 0;
+    }
+
+    ul > li:nth-child(n + 2) {
+        margin-top: 20px;
+    }
+
+    ol > li {
+        margin-left: 20px;
     }
 </style>
