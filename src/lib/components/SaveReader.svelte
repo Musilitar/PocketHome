@@ -1,7 +1,9 @@
 <script lang="ts">
-    import { Save, parseSave } from '../logic/save'
+    import type { GSC } from '../logic/GSC'
+    import type { RSE } from '../logic/RSE'
+    import { Save } from '../logic/Save'
 
-    let save: Save
+    let save: GSC.Save | RSE.Save
 
     function onDrop(event: DragEvent & { currentTarget: EventTarget & HTMLLabelElement }): void {
         readSave(event.dataTransfer.files[0])
@@ -14,7 +16,7 @@
     function readSave(file: File): void {
         const reader = new FileReader()
         reader.onload = (event) => {
-            save = parseSave(event.target.result as string, file.size)
+            save = Save.parseSave(event.target.result as string, file.size)
         }
         reader.readAsBinaryString(file)
     }
@@ -31,7 +33,7 @@
     <ul>
         <li>
             <p><i>Game</i></p>
-            <p>{save.game.code}--{save.game.version}</p>
+            <p>{save.version}</p>
         </li>
         <li>
             <p><i>Team</i></p>
