@@ -6,9 +6,9 @@ namespace RSE {
     const RS_VERSION = 'Ruby/Sapphire'
     const E_VERSION = 'Emerald'
 
-    const SECTOR_SIZE = 0x1000
-    const AMOUNT_OF_SECTORS = 14
-    const MAIN_SIZE = AMOUNT_OF_SECTORS * SECTOR_SIZE
+    const SECTION_SIZE = 0x1000
+    const AMOUNT_OF_SECTIONS = 14
+    const MAIN_SIZE = AMOUNT_OF_SECTIONS * SECTION_SIZE
 
     export class Save {
         constructor(public version: string, public team: Pokemon[], public boxes: Box[]) {}
@@ -29,57 +29,113 @@ namespace RSE {
 
     export function parseSave(data: string): Save {
         const version = determineVersion(data)
+        const currentBlockSectionMap = buildCurrentBlockSectionMap(data)
+        const team = readTeam(data, version, currentBlockSectionMap)
 
-        return new Save(version, [], [])
+        return new Save(version, team, [])
     }
 
     function determineVersion(data: string): string {
-        const count = Math.round(data.length / Data.RSE_HALF_RAW_SIZE)
-        for (let slot = 0; slot < count; slot++) {
-            const firstSectorOffset = findFirstSectorOffset(data, slot)
+        for (let block = 0; block < 2; block++) {
+            const firstSectionOffset = findValidFirstSectionOffset(data, block)
 
-            if (firstSectorOffset !== undefined) {
-                return findVersion(data.slice(firstSectorOffset))
+            if (firstSectionOffset !== undefined) {
+                return findVersion(data.slice(firstSectionOffset))
             }
         }
 
         throw 'Failed to determine version'
     }
 
-    function findFirstSectorOffset(data: string, slot: number): number | undefined {
-        const start = MAIN_SIZE * slot
+    function findValidFirstSectionOffset(data: string, block: number): number | undefined {
+        const start = MAIN_SIZE * block
         const end = start + MAIN_SIZE
-        const completeSectorCounter = 0b0011_1111_1111_1111
-        let sectorCounter = 0
-        let firstSectorOffset = 0
+        const completeSectionCounter = 0b0011_1111_1111_1111
+        let sectionCounter = 0
+        let firstSectionOffset = 0
 
-        for (let offset = start; offset < end; offset += SECTOR_SIZE) {
+        for (let offset = start; offset < end; offset += SECTION_SIZE) {
             const section = data.slice(offset)
-            const a = 0xff4
             const id = Data.readInteger(section, 0xff4, 2)
-            sectorCounter |= 1 << id
-            if (id == 0) firstSectorOffset = offset
+            sectionCounter |= 1 << id
+            if (id === 0) firstSectionOffset = offset
         }
 
-        if (sectorCounter == completeSectorCounter) return firstSectorOffset
+        if (sectionCounter == completeSectionCounter) return firstSectionOffset
 
         return undefined
     }
 
     function findVersion(data: string): string {
-        const marker = Data.readInteger(data, 0xac, 4)
-        switch (marker) {
-            case 1:
-                return FRLG_VERSION
+        const gameCode = Data.readInteger(data, 0xac, 4)
+        switch (gameCode) {
             case 0:
                 return RS_VERSION
+            case 1:
+                return FRLG_VERSION
             default:
-                // If any data exists after 0x890 it must be Emerald
-                for (let i = 0x890; i < 0xf2c; i += 8) {
-                    if (Data.readInteger(data, i, 8) !== 0) return E_VERSION
-                }
-
-                return RS_VERSION
+                return E_VERSION
         }
+    }
+
+    function buildCurrentBlockSectionMap(data: string): Record<number, number> {
+        const block0SectionMap = buildSectionMapForBlock(data, 0)
+        const block1SectionMap = buildSectionMapForBlock(data, 1)
+        const block0SaveIndex = findSaveIndex(data, block0SectionMap)
+        const block1SaveIndex = findSaveIndex(data, block1SectionMap)
+
+        return block0SaveIndex > block1SaveIndex ? block0SectionMap : block1SectionMap
+    }
+
+    function findSaveIndex(data: string, sectionMap: Record<number, number>): number | undefined {
+        const lastSectionOffset = sectionMap[AMOUNT_OF_SECTIONS - 1]
+
+        if (lastSectionOffset !== undefined) {
+            return Data.readInteger(data.slice(lastSectionOffset), 0xffc, 4)
+        }
+
+        return undefined
+    }
+
+    function buildSectionMapForBlock(data: string, block: number): Record<number, number> {
+        const start = MAIN_SIZE * block
+        const end = start + MAIN_SIZE
+        const map: Record<number, number> = {}
+
+        for (let offset = start; offset < end; offset += SECTION_SIZE) {
+            const section = data.slice(offset)
+            const id = Data.readInteger(section, 0xff4, 2)
+
+            map[id] = offset
+        }
+
+        return map
+    }
+
+    function readTeam(data: string, version: string, sectionMap: Record<number, number>): Pokemon[] {
+        if (version === RS_VERSION || version === E_VERSION) {
+            const teamOffset = sectionMap[1] + 0x238
+            const teamSize = readTeamSize(data, version, sectionMap)
+
+            return readPokemonList(data, teamOffset, teamSize)
+        }
+
+        throw 'Failed to read team'
+    }
+
+    function readTeamSize(data: string, version: string, sectionMap: Record<number, number>): number {
+        if (version === RS_VERSION || version === E_VERSION) {
+            const teamSizeOffset = sectionMap[1] + 0x234
+
+            return Data.readInteger(data, teamSizeOffset, 4)
+        }
+
+        throw 'Failed to read team size'
+    }
+
+    function readPokemonList(data: string, offset: number, capacity: number): Pokemon[] {
+        const pokemon: Pokemon[] = []
+
+        return pokemon
     }
 }
