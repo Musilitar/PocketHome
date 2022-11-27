@@ -1,6 +1,6 @@
 <script lang="ts">
-    import type { GSC } from '../logic/GSC'
-    import type { RSE } from '../logic/RSE'
+    import type { GSC } from '../logic/games/GSC'
+    import type { RSE } from '../logic/games/RSE'
     import { Save } from '../logic/Save'
 
     let save: GSC.Save | RSE.Save

@@ -33,15 +33,13 @@ namespace Data {
     export const RSE_SIZES = [RSE_RAW_SIZE, RSE_EMULATOR_SIZE, RSE_HALF_RAW_SIZE]
 
     export function readInteger(data: string, offset: number, size: number) {
-        let hexadecimal = ''
+        let integer = 0
 
         for (let i = 0; i < size; i++) {
-            let byte = data.charCodeAt(offset + i).toString(16)
-            if (byte.length < 2) byte = byte.padStart(2, '0')
-            hexadecimal += byte
+            integer += data.charCodeAt(offset + i)
         }
 
-        return parseInt(hexadecimal, 16)
+        return integer
     }
 
     export function readText(data: String, offset: number, size: number, characterMap: Record<number, string>): string {
